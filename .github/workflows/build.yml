@@ -1,21 +1,17 @@
 name: Build Privacy Keyboard APK
-
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-
       - name: Install Android SDK
         run: |
           sudo apt-get install -y wget unzip
@@ -25,301 +21,118 @@ jobs:
           mv cmdline-tools/* $HOME/android-sdk/cmdline-tools/latest/
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
           echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
           yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk "platforms;android-34" "build-tools;34.0.0" "platform-tools"
-
-      - name: Generate project files
+      - name: Generate and build
         run: |
           mkdir -p app/src/main/java/com/auxenstudio/privacykeyboard
           mkdir -p app/src/main/res/xml
-          mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/res/drawable
           mkdir -p gradle/wrapper
-
-          cat > settings.gradle << 'ENDOFFILE'
-          rootProject.name = "PrivacyKeyboard"
-          include ':app'
-          ENDOFFILE
-
-          cat > build.gradle << 'ENDOFFILE'
-          plugins {
-              id 'com.android.application' version '8.2.0' apply false
-              id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
-          }
-          ENDOFFILE
-
-          cat > gradle.properties << 'ENDOFFILE'
-          android.useAndroidX=true
-          kotlin.code.style=official
-          ENDOFFILE
-
-          cat > gradle/wrapper/gradle-wrapper.properties << 'ENDOFFILE'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          ENDOFFILE
-
-          cat > app/build.gradle << 'ENDOFFILE'
-          plugins {
-              id 'com.android.application'
-              id 'org.jetbrains.kotlin.android'
-          }
-          android {
-              namespace 'com.auxenstudio.privacykeyboard'
-              compileSdk 34
-              defaultConfig {
-                  applicationId "com.auxenstudio.privacykeyboard"
-                  minSdk 26
-                  targetSdk 34
-                  versionCode 1
-                  versionName "1.0"
-              }
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-              kotlinOptions { jvmTarget = '17' }
-          }
-          dependencies {
-              implementation 'androidx.core:core-ktx:1.12.0'
-              implementation 'com.google.android.material:material:1.11.0'
-          }
-          ENDOFFILE
-
-          cat > app/src/main/AndroidManifest.xml << 'ENDOFFILE'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application
-                  android:allowBackup="false"
-                  android:label="Privacy Keyboard"
-                  android:theme="@style/Theme.AppCompat">
-                  <activity
-                      android:name=".SettingsActivity"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-                  <service
-                      android:name=".PrivacyKeyboardService"
-                      android:permission="android.permission.BIND_INPUT_METHOD"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.view.InputMethod"/>
-                      </intent-filter>
-                      <meta-data
-                          android:name="android.view.im"
-                          android:resource="@xml/method"/>
-                  </service>
-              </application>
-          </manifest>
-          ENDOFFILE
-
-          cat > app/src/main/res/xml/method.xml << 'ENDOFFILE'
-          <?xml version="1.0" encoding="utf-8"?>
-          <input-method xmlns:android="http://schemas.android.com/apk/res/android">
-              <subtype
-                  android:imeSubtypeLocale="en_US"
-                  android:imeSubtypeMode="keyboard"/>
-          </input-method>
-          ENDOFFILE
-
-          cat > app/src/main/res/values/colors.xml << 'ENDOFFILE'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <color name="bg">#0D0D0F</color>
-              <color name="green">#39FF14</color>
-              <color name="key">#1A1A20</color>
-              <color name="text">#E8E8EC</color>
-          </resources>
-          ENDOFFILE
-
-          cat > app/src/main/res/values/strings.xml << 'ENDOFFILE'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <string name="app_name">Privacy Keyboard</string>
-          </resources>
-          ENDOFFILE
-
-          cat > app/src/main/res/drawable/key_bg.xml << 'ENDOFFILE'
-          <?xml version="1.0" encoding="utf-8"?>
-          <shape xmlns:android="http://schemas.android.com/apk/res/android">
-              <solid android:color="#1A1A20"/>
-              <corners android:radius="6dp"/>
-          </shape>
-          ENDOFFILE
-
-          cat > app/src/main/java/com/auxenstudio/privacykeyboard/SettingsActivity.kt << 'ENDOFFILE'
+          printf 'rootProject.name = "PrivacyKeyboard"\ninclude ":app"\n' > settings.gradle
+          printf 'buildscript {\n  repositories { google(); mavenCentral() }\n  dependencies {\n    classpath "com.android.tools.build:gradle:8.2.0"\n    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22"\n  }\n}\nallprojects { repositories { google(); mavenCentral() } }\n' > build.gradle
+          printf 'android.useAndroidX=true\n' > gradle.properties
+          printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.4-bin.zip\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' > gradle/wrapper/gradle-wrapper.properties
+          printf 'apply plugin: "com.android.application"\napply plugin: "kotlin-android"\nandroid {\n  namespace "com.auxenstudio.privacykeyboard"\n  compileSdk 34\n  defaultConfig {\n    applicationId "com.auxenstudio.privacykeyboard"\n    minSdk 26; targetSdk 34; versionCode 1; versionName "1.0"\n  }\n  compileOptions {\n    sourceCompatibility JavaVersion.VERSION_17\n    targetCompatibility JavaVersion.VERSION_17\n  }\n  kotlinOptions { jvmTarget = "17" }\n}\ndependencies {\n  implementation "androidx.core:core-ktx:1.12.0"\n  implementation "com.google.android.material:material:1.11.0"\n}\n' > app/build.gradle
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n  <application android:allowBackup="false" android:label="Privacy Keyboard" android:theme="@style/Theme.AppCompat">\n    <activity android:name=".SettingsActivity" android:exported="true">\n      <intent-filter>\n        <action android:name="android.intent.action.MAIN"/>\n        <category android:name="android.intent.category.LAUNCHER"/>\n      </intent-filter>\n    </activity>\n    <service android:name=".PrivacyKeyboardService" android:permission="android.permission.BIND_INPUT_METHOD" android:exported="true">\n      <intent-filter><action android:name="android.view.InputMethod"/></intent-filter>\n      <meta-data android:name="android.view.im" android:resource="@xml/method"/>\n    </service>\n  </application>\n</manifest>\n' > app/src/main/AndroidManifest.xml
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<input-method xmlns:android="http://schemas.android.com/apk/res/android">\n  <subtype android:imeSubtypeLocale="en_US" android:imeSubtypeMode="keyboard"/>\n</input-method>\n' > app/src/main/res/xml/method.xml
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<resources><string name="app_name">Privacy Keyboard</string></resources>\n' > app/src/main/res/values/strings.xml
+          cat > app/src/main/java/com/auxenstudio/privacykeyboard/SettingsActivity.kt << 'KT'
           package com.auxenstudio.privacykeyboard
-          import android.app.Activity
-          import android.os.Bundle
+          import android.app.Activity; import android.os.Bundle
           import android.view.inputmethod.InputMethodManager
-          import android.widget.*
-          import android.graphics.Color
+          import android.widget.*; import android.graphics.Color
           class SettingsActivity : Activity() {
-              override fun onCreate(s: Bundle?) {
-                  super.onCreate(s)
-                  val root = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setBackgroundColor(Color.parseColor("#0D0D0F"))
-                      setPadding(48,80,48,48)
-                  }
-                  root.addView(TextView(this).apply {
-                      text = "PRIVACY KEYBOARD"
-                      textSize = 22f
-                      setTextColor(Color.parseColor("#39FF14"))
-                  })
-                  root.addView(TextView(this).apply {
-                      text = "\nNo internet · No tracking · Local only\n"
-                      textSize = 13f
-                      setTextColor(Color.parseColor("#888888"))
-                  })
-                  val btn = Button(this).apply {
-                      text = "ENABLE KEYBOARD"
-                      setTextColor(Color.parseColor("#000000"))
-                      backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#39FF14"))
-                  }
-                  btn.setOnClickListener {
-                      (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
-                  }
-                  root.addView(btn)
-                  setContentView(root)
+            override fun onCreate(s: Bundle?) {
+              super.onCreate(s)
+              val root = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setBackgroundColor(Color.parseColor("#0D0D0F"))
+                setPadding(48,80,48,48)
               }
+              root.addView(TextView(this).apply {
+                text = "PRIVACY KEYBOARD"; textSize = 20f
+                setTextColor(Color.parseColor("#39FF14"))
+              })
+              val btn = Button(this).apply {
+                text = "ENABLE KEYBOARD"; setTextColor(Color.BLACK)
+                backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#39FF14"))
+              }
+              btn.setOnClickListener { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker() }
+              root.addView(btn); setContentView(root)
+            }
           }
-          ENDOFFILE
-
-          cat > app/src/main/java/com/auxenstudio/privacykeyboard/PrivacyKeyboardService.kt << 'ENDOFFILE'
+          KT
+          cat > app/src/main/java/com/auxenstudio/privacykeyboard/PrivacyKeyboardService.kt << 'KT'
           package com.auxenstudio.privacykeyboard
-          import android.graphics.Color
-          import android.inputmethodservice.InputMethodService
-          import android.os.*
-          import android.util.TypedValue
-          import android.view.*
-          import android.widget.*
+          import android.graphics.Color; import android.inputmethodservice.InputMethodService
+          import android.os.*; import android.util.TypedValue; import android.view.*; import android.widget.*
           class PrivacyKeyboardService : InputMethodService() {
-              private val rows = listOf(
-                  listOf("1","2","3","4","5","6","7","8","9","0"),
-                  listOf("q","w","e","r","t","y","u","i","o","p"),
-                  listOf("a","s","d","f","g","h","j","k","l"),
-                  listOf("z","x","c","v","b","n","m")
-              )
-              private var shift = false
-              override fun onCreateInputView(): View {
-                  val root = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setBackgroundColor(Color.parseColor("#0D0D0F"))
-                      setPadding(4,4,4,8)
-                  }
-                  val status = TextView(this).apply {
-                      text = "🔒 OFFLINE · NO TELEMETRY"
-                      textSize = 9f
-                      setTextColor(Color.parseColor("#39FF14"))
-                      setPadding(12,6,12,6)
-                  }
-                  root.addView(status)
-                  rows.forEach { row ->
-                      root.addView(makeRow(row))
-                  }
-                  root.addView(makeBottomRow())
-                  return root
+            private val rows = listOf(
+              listOf("1","2","3","4","5","6","7","8","9","0"),
+              listOf("q","w","e","r","t","y","u","i","o","p"),
+              listOf("a","s","d","f","g","h","j","k","l"),
+              listOf("z","x","c","v","b","n","m"))
+            private var shift = false
+            override fun onCreateInputView(): View {
+              val root = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setBackgroundColor(Color.parseColor("#0D0D0F")); setPadding(4,4,4,8)
               }
-              private fun makeRow(keys: List<String>): LinearLayout {
-                  return LinearLayout(this).apply {
-                      orientation = LinearLayout.HORIZONTAL
-                      gravity = Gravity.CENTER
-                      setPadding(0,2,0,2)
-                      keys.forEach { k -> addView(makeKey(k)) }
-                  }
+              root.addView(TextView(this).apply {
+                text = "OFFLINE - NO TELEMETRY"; textSize = 9f
+                setTextColor(Color.parseColor("#39FF14")); setPadding(12,6,12,6)
+              })
+              rows.forEach { row ->
+                root.addView(LinearLayout(this).apply {
+                  orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0,2,0,2)
+                  row.forEach { k -> addView(Button(this@PrivacyKeyboardService).apply {
+                    text = if(shift) k.uppercase() else k; textSize = 14f; isAllCaps = false
+                    setTextColor(Color.parseColor("#E8E8EC"))
+                    backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#1A1A20"))
+                    setPadding(0,0,0,0)
+                    layoutParams = LinearLayout.LayoutParams(0,dp(44)).apply { weight=1f; setMargins(2,2,2,2) }
+                    setOnClickListener { currentInputConnection?.commitText(if(shift) k.uppercase() else k,1); if(shift){shift=false}; vib() }
+                  })}
+                })
               }
-              private fun makeKey(label: String): Button {
-                  return Button(this).apply {
-                      text = if (shift) label.uppercase() else label
-                      textSize = 14f
-                      setTextColor(Color.parseColor("#E8E8EC"))
-                      backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#1A1A20"))
-                      isAllCaps = false
-                      setPadding(0,0,0,0)
-                      layoutParams = LinearLayout.LayoutParams(0, dp(44)).apply {
-                          weight = 1f; setMargins(2,2,2,2)
-                      }
-                      setOnClickListener {
-                          val out = if (shift) label.uppercase() else label
-                          currentInputConnection?.commitText(out, 1)
-                          if (shift) { shift = false; refreshKeys(this@PrivacyKeyboardService) }
-                          vibrate()
-                      }
-                  }
-              }
-              private fun makeBottomRow(): LinearLayout {
-                  return LinearLayout(this).apply {
-                      orientation = LinearLayout.HORIZONTAL
-                      gravity = Gravity.CENTER
-                      setPadding(0,2,0,2)
-                      addView(Button(this@PrivacyKeyboardService).apply {
-                          text = "⇧"; textSize = 14f; isAllCaps = false
-                          setTextColor(Color.parseColor("#E8E8EC"))
-                          backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#1C1825"))
-                          layoutParams = LinearLayout.LayoutParams(dp(52), dp(44)).apply { setMargins(2,2,2,2) }
-                          setOnClickListener { shift = !shift; vibrate() }
-                      })
-                      addView(Button(this@PrivacyKeyboardService).apply {
-                          text = "SPACE"; textSize = 11f; isAllCaps = false
-                          setTextColor(Color.parseColor("#E8E8EC"))
-                          backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#1A1A20"))
-                          layoutParams = LinearLayout.LayoutParams(0, dp(44)).apply { weight = 1f; setMargins(2,2,2,2) }
-                          setOnClickListener { currentInputConnection?.commitText(" ", 1) }
-                      })
-                      addView(Button(this@PrivacyKeyboardService).apply {
-                          text = "⌫"; textSize = 14f; isAllCaps = false
-                          setTextColor(Color.parseColor("#E8E8EC"))
-                          backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#1C1825"))
-                          layoutParams = LinearLayout.LayoutParams(dp(52), dp(44)).apply { setMargins(2,2,2,2) }
-                          setOnClickListener { currentInputConnection?.deleteSurroundingText(1,0); vibrate() }
-                      })
-                      addView(Button(this@PrivacyKeyboardService).apply {
-                          text = "↵"; textSize = 14f; isAllCaps = false
-                          setTextColor(Color.parseColor("#000000"))
-                          backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#39FF14"))
-                          layoutParams = LinearLayout.LayoutParams(dp(60), dp(44)).apply { setMargins(2,2,2,2) }
-                          setOnClickListener { currentInputConnection?.commitText("\n",1) }
-                      })
-                  }
-              }
-              private fun refreshKeys(ctx: PrivacyKeyboardService) {}
-              private fun vibrate() {
-                  try {
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                          (getSystemService(VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
-                              .vibrate(VibrationEffect.createOneShot(18, VibrationEffect.DEFAULT_AMPLITUDE))
-                      } else {
-                          @Suppress("DEPRECATION")
-                          (getSystemService(VIBRATOR_SERVICE) as Vibrator)
-                              .vibrate(18)
-                      }
-                  } catch (e: Exception) {}
-              }
-              private fun dp(v: Int) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
+              root.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0,2,0,2)
+                addView(kb("SHF",52,"#1C1825"){shift=!shift;vib()})
+                addView(Button(this@PrivacyKeyboardService).apply {
+                  text="SPACE";textSize=11f;isAllCaps=false
+                  setTextColor(Color.parseColor("#E8E8EC"))
+                  backgroundTintList=android.content.res.ColorStateList.valueOf(Color.parseColor("#1A1A20"))
+                  layoutParams=LinearLayout.LayoutParams(0,dp(44)).apply{weight=1f;setMargins(2,2,2,2)}
+                  setOnClickListener{currentInputConnection?.commitText(" ",1)}
+                })
+                addView(kb("DEL",52,"#1C1825"){currentInputConnection?.deleteSurroundingText(1,0);vib()})
+                addView(kb("OK",60,"#39FF14"){currentInputConnection?.commitText("\n",1)})
+              })
+              return root
+            }
+            private fun kb(l:String,w:Int,c:String,f:()->Unit)=Button(this).apply{
+              text=l;textSize=13f;isAllCaps=false
+              setTextColor(if(c=="#39FF14")Color.BLACK else Color.parseColor("#E8E8EC"))
+              backgroundTintList=android.content.res.ColorStateList.valueOf(Color.parseColor(c))
+              layoutParams=LinearLayout.LayoutParams(dp(w),dp(44)).apply{setMargins(2,2,2,2)}
+              setOnClickListener{f()}
+            }
+            private fun vib()=try{
+              if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.S)
+                (getSystemService(VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator.vibrate(VibrationEffect.createOneShot(18,VibrationEffect.DEFAULT_AMPLITUDE))
+              else @Suppress("DEPRECATION")(getSystemService(VIBRATOR_SERVICE) as Vibrator).vibrate(18)
+            }catch(e:Exception){}
+            private fun dp(v:Int)=TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,v.toFloat(),resources.displayMetrics).toInt()
           }
-          ENDOFFILE
-
-      - name: Setup Gradle wrapper
-        run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.4-bin.zip -O /tmp/gradle.zip
-          unzip -q /tmp/gradle.zip -d /tmp/
-          /tmp/gradle-8.4/bin/gradle wrapper --gradle-version 8.4
+          KT
+          wget -q https://services.gradle.org/distributions/gradle-8.4-bin.zip -O /tmp/g.zip
+          unzip -q /tmp/g.zip -d /tmp/
+          /tmp/gradle-8.4/bin/gradle wrapper
           chmod +x gradlew
-
-      - name: Build APK
-        run: ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --stacktrace
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: PrivacyKeyboard-debug
           path: app/build/outputs/apk/debug/app-debug.apk
